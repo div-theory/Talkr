@@ -14,6 +14,8 @@ body {
     overflow: hidden;
     width: 100vw;
     height: 100vh;
+    user-select: none;
+    /* Prevents highlighting text while dragging */
 }
 
 /* --- CANVAS BACKGROUND --- */
@@ -36,6 +38,13 @@ h1 {
     -webkit-text-fill-color: transparent;
 }
 
+h2 {
+    font-weight: 700;
+    font-size: 2rem;
+    letter-spacing: -0.02em;
+    margin-bottom: 24px;
+}
+
 p {
     font-size: 16px;
     line-height: 1.6;
@@ -54,7 +63,6 @@ p {
     padding: 40px;
     text-align: center;
     box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.05);
-    /* Ultra soft shadow */
     transition: all var(--duration) var(--ease-smooth);
 }
 
@@ -73,12 +81,9 @@ p {
     align-items: center;
     justify-content: center;
     gap: 12px;
-    transition: background var(--duration) var(--ease-smooth),
-        border-color var(--duration) var(--ease-smooth),
-        color var(--duration) var(--ease-smooth);
+    transition: all var(--duration) var(--ease-smooth);
 }
 
-/* Subtle Hover - No Movement */
 .pill-btn:hover {
     background: var(--surface-hover);
     border-color: var(--fg-secondary);
@@ -94,25 +99,25 @@ p {
     background: var(--fg-secondary);
 }
 
-/* --- ICONS BUTTONS --- */
+/* --- ICONS --- */
 .icon-btn {
     width: 52px;
     height: 52px;
     border-radius: 50%;
     border: 1px solid var(--stroke);
     background: rgba(20, 20, 20, 0.6);
-    /* Glassy dark */
     backdrop-filter: blur(12px);
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: background var(--duration) var(--ease-smooth);
+    transition: all var(--duration) var(--ease-smooth);
 }
 
 .icon-btn:hover {
-    background: rgba(40, 40, 40, 0.8);
+    background: rgba(60, 60, 60, 0.8);
+    transform: scale(1.05);
 }
 
 .icon-btn.active {
@@ -144,23 +149,85 @@ p {
     background: #000;
 }
 
-.local-video {
+.remote-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Draggable Local Video */
+.local-video-wrapper {
     position: absolute;
-    bottom: 120px;
+    bottom: 32px;
     right: 32px;
     width: 160px;
     height: 213px;
-    /* 3:4 Aspect */
-    background: #111;
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-    object-fit: cover;
+    border-radius: 18px;
     z-index: 20;
-    transition: opacity var(--duration) var(--ease-smooth);
+    cursor: grab;
+    /* Smooth transition for border/shadow, NOT transform (to avoid drag lag) */
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
-.remote-video {
+.local-video-wrapper:active {
+    cursor: grabbing;
+    transform: scale(1.02);
+}
+
+.local-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 18px;
+    background: #111;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    pointer-events: none;
+    /* Let clicks pass to wrapper */
+}
+
+/* Audio Glow Effect */
+.local-video-wrapper.speaking .local-video {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px var(--accent-glow);
+}
+
+/* Auto-Hide Controls */
+.controls-bar {
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 16px;
+    z-index: 30;
+    padding: 12px 24px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 99px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.5s var(--ease-smooth);
+    opacity: 1;
+}
+
+.controls-bar.hidden {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+    pointer-events: none;
+}
+
+/* --- GREEN ROOM PREVIEW --- */
+.preview-wrapper {
+    width: 320px;
+    height: 240px;
+    background: #000;
+    border-radius: 16px;
+    overflow: hidden;
+    margin: 24px auto;
+    position: relative;
+    border: 1px solid var(--stroke);
+}
+
+.preview-video {
     width: 100%;
     height: 100%;
     object-fit: cover;
