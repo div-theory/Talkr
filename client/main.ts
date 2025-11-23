@@ -39,11 +39,29 @@ new ParticleSystem();
 
 const appState = {
     manager: null as PeerManager | null,
-    isMuted: false, isVideoOff: true,
-    isGhost: false,
+    isMuted: false, isVideoOff: true, isGhost: false,
     stream: null as MediaStream | null, idleTimer: 0 as any
 };
 const appContainer = document.getElementById('app') as HTMLDivElement;
+
+// --- UTILS ---
+function playSfx(type: 'pop' | 'msg') {
+    try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        if (type === 'pop') { osc.type = 'sine'; osc.frequency.setValueAtTime(800, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1); osc.start(); osc.stop(ctx.currentTime + 0.1); }
+        else { osc.type = 'triangle'; osc.frequency.setValueAtTime(400, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2); osc.start(); osc.stop(ctx.currentTime + 0.2); }
+    } catch (e) { }
+}
+
+function showToast(msg: string) {
+    let container = document.querySelector('.toast-container');
+    if (!container) { container = document.createElement('div'); container.className = 'toast-container'; document.body.appendChild(container); }
+    const toast = document.createElement('div'); toast.className = 'toast'; toast.innerText = msg;
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
 
 function makeDraggable(el: HTMLElement) {
     let isDragging = false, startX = 0, startY = 0, initLeft = 0, initTop = 0;
@@ -53,7 +71,7 @@ function makeDraggable(el: HTMLElement) {
     el.addEventListener('mousedown', start); el.addEventListener('touchstart', start); window.addEventListener('mousemove', move); window.addEventListener('touchmove', move); window.addEventListener('mouseup', end); window.addEventListener('touchend', end);
 }
 
-// --- VISUALIZER ---
+// --- NEW VISUALIZER (SINE WAVE) ---
 function initSpectrogram(stream: MediaStream) {
     const cvs = document.createElement('canvas'); cvs.id = 'audioCanvas';
     const ctx = cvs.getContext('2d')!;
@@ -65,7 +83,7 @@ function initSpectrogram(stream: MediaStream) {
 
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     const src = audioCtx.createMediaStreamSource(stream);
-    const analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
+    const analyser = audioCtx.createAnalyser(); analyser.fftSize = 2048; // Higher res for wave
     src.connect(analyser);
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
@@ -73,34 +91,31 @@ function initSpectrogram(stream: MediaStream) {
     const draw = () => {
         if (!document.body.contains(cvs)) return;
         requestAnimationFrame(draw);
-        analyser.getByteFrequencyData(dataArray);
+        analyser.getByteTimeDomainData(dataArray);
         ctx.clearRect(0, 0, cvs.width, cvs.height);
-        const barWidth = (cvs.width / bufferLength) * 2.5;
+        ctx.lineWidth = 2; ctx.strokeStyle = '#4ADE80'; ctx.beginPath();
+        const sliceWidth = cvs.width * 1.0 / bufferLength;
         let x = 0;
         for (let i = 0; i < bufferLength; i++) {
-            const barHeight = dataArray[i] / 2;
-            ctx.fillStyle = `rgba(74, 222, 128, ${barHeight / 150})`; // Greenish opacity
-            ctx.fillRect(x, cvs.height - barHeight, barWidth, barHeight);
-            x += barWidth + 1;
+            const v = dataArray[i] / 128.0;
+            const y = v * cvs.height / 2;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            x += sliceWidth;
         }
+        ctx.lineTo(cvs.width, cvs.height / 2); ctx.stroke();
     }; draw();
 }
 
 // --- THEME ---
 function initTheme() {
-    const btn = document.createElement('button');
-    btn.className = 'icon-btn theme-toggle';
-    btn.innerHTML = ICONS.moon;
-    btn.title = "Toggle Theme";
-    document.body.appendChild(btn);
-    btn.addEventListener('click', () => {
-        document.body.classList.toggle('dark-theme');
-    });
+    const btn = document.createElement('button'); btn.className = 'icon-btn theme-toggle'; btn.innerHTML = ICONS.moon; btn.title = "Toggle Theme";
+    document.body.appendChild(btn); btn.addEventListener('click', () => { document.body.classList.toggle('dark-theme'); });
 }
 initTheme();
 
+// --- CALL UI ---
 async function startCall(roomId: string, stream: MediaStream) {
-    appContainer.innerHTML = '';
+    appContainer.innerHTML = ''; playSfx('pop');
 
     const vidWrapper = document.createElement('div'); vidWrapper.className = 'video-container'; appContainer.appendChild(vidWrapper);
     const remoteVideo = document.createElement('video'); remoteVideo.className = 'remote-video'; remoteVideo.autoplay = true; remoteVideo.playsInline = true; vidWrapper.appendChild(remoteVideo);
@@ -108,28 +123,14 @@ async function startCall(roomId: string, stream: MediaStream) {
     const localVideo = document.createElement('video'); localVideo.className = 'local-video'; localVideo.autoplay = true; localVideo.playsInline = true; localVideo.muted = true; localVideo.srcObject = stream;
     localWrapper.appendChild(localVideo); vidWrapper.appendChild(localWrapper); makeDraggable(localWrapper);
 
-    const statsPill = document.createElement('div'); statsPill.className = 'stats-pill';
-    statsPill.innerHTML = `<div class="stat-item">PING: <span id="statPing">--</span>ms</div><div class="stat-item">MODE: <span id="statMode">--</span></div>`;
-    appContainer.appendChild(statsPill);
-
-    const dropZone = document.createElement('div'); dropZone.className = 'drop-zone';
-    dropZone.innerHTML = `<h2>DROP TO SHARE</h2><p>Encrypted P2P Transfer</p>`;
-    appContainer.appendChild(dropZone);
+    const statsPill = document.createElement('div'); statsPill.className = 'stats-pill'; statsPill.innerHTML = `<div class="stat-item">PING: <span id="statPing">--</span>ms</div><div class="stat-item">MODE: <span id="statMode">--</span></div>`; appContainer.appendChild(statsPill);
+    const dropZone = document.createElement('div'); dropZone.className = 'drop-zone'; dropZone.innerHTML = `<h2>DROP TO SHARE</h2><p>Encrypted P2P Transfer</p>`; appContainer.appendChild(dropZone);
 
     const chatDrawer = document.createElement('div'); chatDrawer.className = 'chat-drawer';
     chatDrawer.innerHTML = `
-    <div class="chat-header">
-        <h2>Secure Chat</h2>
-        <div style="display:flex;gap:8px;">
-            <button class="icon-btn" id="ghostBtn" title="Ghost Mode" style="width:36px;height:36px;">${ICONS.ghost}</button>
-            <button class="icon-btn" id="closeChat" style="width:36px;height:36px;">✕</button>
-        </div>
-    </div>
+    <div class="chat-header"><h2>Secure Chat</h2><div style="display:flex;gap:8px;"><button class="icon-btn" id="ghostBtn" title="Ghost Mode" style="width:36px;height:36px;">${ICONS.ghost}</button><button class="icon-btn" id="closeChat" style="width:36px;height:36px;">✕</button></div></div>
     <div class="chat-messages" id="chatArea"></div>
-    <div class="chat-input-area">
-        <input type="text" class="chat-input" id="chatInput" placeholder="Type a message...">
-        <button class="pill-btn primary" id="sendChatBtn" style="height:42px;padding:0 16px;">Send</button>
-    </div>
+    <div class="chat-input-area"><input type="text" class="chat-input" id="chatInput" placeholder="Type a message..."><button class="pill-btn primary" id="sendChatBtn" style="height:42px;padding:0 16px;">Send</button></div>
   `;
     appContainer.appendChild(chatDrawer);
 
@@ -138,8 +139,8 @@ async function startCall(roomId: string, stream: MediaStream) {
     <button id="copyBtn" class="icon-btn" title="Copy Link">${ICONS.copy}</button>
     <button id="screenBtn" class="icon-btn" title="Share Screen">${ICONS.screen}</button>
     <button id="pipBtn" class="icon-btn" title="Pop Out">${ICONS.pip}</button>
-    <button id="vidBtn" class="icon-btn" title="Cam">${ICONS.camOff}</button>
-    <button id="muteBtn" class="icon-btn active" title="Mic">${ICONS.mic}</button>
+    <button id="vidBtn" class="icon-btn" title="Cam">${appState.isVideoOff ? ICONS.camOff : ICONS.cam}</button>
+    <button id="muteBtn" class="icon-btn ${appState.isMuted ? '' : 'active'}" title="Mic">${appState.isMuted ? ICONS.micOff : ICONS.mic}</button>
     <button id="chatBtn" class="icon-btn" title="Chat">${ICONS.chat}<div class="notify-dot"></div></button>
     <button id="endBtn" class="icon-btn danger" title="End">${ICONS.end}</button>
   `;
@@ -153,75 +154,45 @@ async function startCall(roomId: string, stream: MediaStream) {
     await appState.manager.start(stream);
 
     appState.manager.onRemoteStream = (s) => {
-        remoteVideo.srcObject = s;
-        status.innerText = 'ENCRYPTED • X25519'; status.style.color = '#4ADE80';
-        initSpectrogram(s); // Start Visualizer
+        remoteVideo.srcObject = s; status.innerText = 'ENCRYPTED • X25519'; status.style.color = '#4ADE80'; initSpectrogram(s);
     };
 
-    setInterval(async () => {
-        if (appState.manager) {
-            const stats = await appState.manager.getStats();
-            if (stats) {
-                document.getElementById('statPing')!.innerText = stats.rtt;
-                document.getElementById('statMode')!.innerText = stats.type;
-            }
-        }
-    }, 2000);
+    setInterval(async () => { if (appState.manager) { const stats = await appState.manager.getStats(); if (stats) { document.getElementById('statPing')!.innerText = stats.rtt; document.getElementById('statMode')!.innerText = stats.type; } } }, 2000);
 
     const addMsg = (text: string, type: 'me' | 'them' | 'sys', isGhost = false) => {
-        const d = document.createElement('div');
-        d.className = `chat-msg ${type === 'me' ? 'me' : type === 'them' ? 'them' : 'sys'} ${isGhost ? 'ghost' : ''}`;
-        d.innerText = text; document.getElementById('chatArea')!.appendChild(d);
-        d.scrollIntoView({ behavior: 'smooth' });
+        const d = document.createElement('div'); d.className = `chat-msg ${type === 'me' ? 'me' : type === 'them' ? 'them' : 'sys'} ${isGhost ? 'ghost' : ''}`;
+        d.innerText = text; document.getElementById('chatArea')!.appendChild(d); d.scrollIntoView({ behavior: 'smooth' });
     };
 
     appState.manager.onChatMessage = (msg) => {
-        addMsg(msg.text, 'them', msg.isGhost);
-        if (!chatDrawer.classList.contains('open')) document.querySelector('.notify-dot')!.classList.add('show');
+        playSfx('msg'); addMsg(msg.text, 'them', msg.isGhost);
+        if (!chatDrawer.classList.contains('open')) { document.querySelector('.notify-dot')!.classList.add('show'); showToast(`💬 ${msg.text.substring(0, 20)}...`); }
     };
 
     appState.manager.onFileReceived = (blob, name) => {
-        const url = URL.createObjectURL(blob);
-        const d = document.createElement('div'); d.className = 'chat-msg them';
-        d.innerHTML = `<div>Received File: <b>${name}</b></div><a href="${url}" download="${name}" style="color:white;text-decoration:underline;">Download</a>`;
+        playSfx('msg'); const url = URL.createObjectURL(blob);
+        const d = document.createElement('div'); d.className = 'chat-msg them'; d.innerHTML = `<div>Received File: <b>${name}</b></div><a href="${url}" download="${name}" style="color:white;text-decoration:underline;">Download</a>`;
         document.getElementById('chatArea')!.appendChild(d);
-        if (!chatDrawer.classList.contains('open')) document.querySelector('.notify-dot')!.classList.add('show');
+        if (!chatDrawer.classList.contains('open')) { document.querySelector('.notify-dot')!.classList.add('show'); showToast(`📁 File: ${name}`); }
     };
 
     document.getElementById('sendChatBtn')?.addEventListener('click', () => {
         const input = document.getElementById('chatInput') as HTMLInputElement;
         if (input.value.trim()) {
             const msg = { text: input.value, isGhost: appState.isGhost };
-            appState.manager?.sendChat(JSON.stringify(msg)); // Wrap logic in peerManager sendChat later
-            // Hack: We need to modify peerManager sendChat to accept objects or strings.
-            // For now, let's just handle it here:
-            if (appState.manager['chatChannel']?.readyState === 'open') {
-                appState.manager['chatChannel'].send(JSON.stringify({ ...msg, time: Date.now(), sender: 'remote' }));
-            }
-            addMsg(input.value, 'me', appState.isGhost);
-            input.value = '';
+            if (appState.manager && appState.manager['chatChannel']?.readyState === 'open') appState.manager['chatChannel'].send(JSON.stringify({ ...msg, time: Date.now(), sender: 'remote' }));
+            addMsg(input.value, 'me', appState.isGhost); input.value = '';
         }
     });
 
-    document.getElementById('ghostBtn')?.addEventListener('click', (e) => {
-        appState.isGhost = !appState.isGhost;
-        (e.currentTarget as HTMLElement).classList.toggle('ghost-active');
-    });
-
-    document.getElementById('pipBtn')?.addEventListener('click', async () => {
-        try {
-            if (document.pictureInPictureElement) await document.exitPictureInPicture();
-            else await remoteVideo.requestPictureInPicture();
-        } catch (e) { alert('PiP not supported or failed.'); }
-    });
-
+    document.getElementById('ghostBtn')?.addEventListener('click', (e) => { appState.isGhost = !appState.isGhost; (e.currentTarget as HTMLElement).classList.toggle('ghost-active'); });
+    document.getElementById('pipBtn')?.addEventListener('click', async () => { try { if (document.pictureInPictureElement) await document.exitPictureInPicture(); else await remoteVideo.requestPictureInPicture(); } catch (e) { } });
     document.getElementById('chatBtn')?.addEventListener('click', () => { chatDrawer.classList.toggle('open'); document.querySelector('.notify-dot')!.classList.remove('show'); });
     document.getElementById('closeChat')?.addEventListener('click', () => chatDrawer.classList.remove('open'));
     document.getElementById('copyBtn')?.addEventListener('click', () => { navigator.clipboard.writeText(window.location.href); status.innerText = 'COPIED'; setTimeout(() => status.innerText = 'SECURE', 2000); });
     document.getElementById('endBtn')?.addEventListener('click', () => window.location.href = '/');
-    document.getElementById('screenBtn')?.addEventListener('click', async () => {
-        const s = await appState.manager?.startScreenShare(); if (s) localVideo.srcObject = s;
-    });
+    document.getElementById('screenBtn')?.addEventListener('click', async () => { const s = await appState.manager?.startScreenShare(); if (s) localVideo.srcObject = s; });
+
     document.getElementById('muteBtn')?.addEventListener('click', (e) => {
         const track = stream.getAudioTracks()[0];
         if (track) { appState.isMuted = !appState.isMuted; track.enabled = !appState.isMuted; (e.currentTarget as HTMLElement).classList.toggle('active'); (e.currentTarget as HTMLElement).innerHTML = appState.isMuted ? ICONS.micOff : ICONS.mic; }
@@ -235,11 +206,7 @@ async function startCall(roomId: string, stream: MediaStream) {
     window.addEventListener('dragleave', (e) => { if (e.relatedTarget === null) dropZone.classList.remove('active'); });
     window.addEventListener('drop', (e) => {
         e.preventDefault(); dropZone.classList.remove('active');
-        if (e.dataTransfer?.files.length) {
-            const file = e.dataTransfer.files[0];
-            appState.manager?.sendFile(file);
-            addMsg(`Sending file: ${file.name}...`, 'sys');
-        }
+        if (e.dataTransfer?.files.length) { const file = e.dataTransfer.files[0]; appState.manager?.sendFile(file); addMsg(`Sending file: ${file.name}...`, 'sys'); }
     });
 
     const resetIdle = () => { controls.classList.remove('hidden'); clearTimeout(appState.idleTimer); appState.idleTimer = setTimeout(() => controls.classList.add('hidden'), 3000); };
@@ -255,23 +222,46 @@ async function renderGreenRoom(roomId: string) {
         <video id="previewVid" class="preview-video" autoplay playsinline muted style="display:none;"></video>
         <div id="noCamText" style="color:#666;font-family:monospace;">CAMERA OFF</div>
       </div>
-      <div style="margin-top:16px;font-size:12px;color:var(--fg-secondary);margin-bottom:16px;">Join as Voice Only (Default)</div>
+      
+      <div style="display:flex; gap:16px; margin: 16px 0;">
+         <button id="grMicBtn" class="icon-btn active">${ICONS.mic}</button>
+         <button id="grCamBtn" class="icon-btn">${ICONS.camOff}</button>
+      </div>
+
       <button id="joinBtn" class="pill-btn primary" style="width:100%;">Join Call</button>
     </div>
   `;
+
     let stream: MediaStream;
-    try { stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); } catch (e) { try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (err) { alert('Mic/Cam blocked.'); return; } }
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); }
+    catch (e) { try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (err) { alert('Mic blocked.'); return; } }
 
     const vid = document.getElementById('previewVid') as HTMLVideoElement;
-    const track = stream.getVideoTracks()[0];
-    if (track) { track.enabled = false; vid.srcObject = stream; }
+    const placeholder = document.getElementById('noCamText') as HTMLElement;
+    const vidTrack = stream.getVideoTracks()[0];
+    if (vidTrack) { vidTrack.enabled = false; vid.srcObject = stream; } // Default Off
+
+    document.getElementById('grMicBtn')?.addEventListener('click', (e) => {
+        const track = stream.getAudioTracks()[0];
+        if (track) { appState.isMuted = !appState.isMuted; track.enabled = !appState.isMuted; (e.currentTarget as HTMLElement).classList.toggle('active'); (e.currentTarget as HTMLElement).innerHTML = appState.isMuted ? ICONS.micOff : ICONS.mic; }
+    });
+
+    document.getElementById('grCamBtn')?.addEventListener('click', (e) => {
+        if (vidTrack) {
+            appState.isVideoOff = !appState.isVideoOff; vidTrack.enabled = !appState.isVideoOff;
+            (e.currentTarget as HTMLElement).classList.toggle('active');
+            (e.currentTarget as HTMLElement).innerHTML = appState.isVideoOff ? ICONS.camOff : ICONS.cam;
+            if (appState.isVideoOff) { vid.style.display = 'none'; placeholder.style.display = 'block'; }
+            else { vid.style.display = 'block'; placeholder.style.display = 'none'; }
+        }
+    });
 
     document.getElementById('joinBtn')?.addEventListener('click', () => startCall(roomId, stream));
 }
 
 function renderHome() {
     appContainer.style.cssText = `display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;position:relative;z-index:10;`;
-    appContainer.innerHTML = `<div class="card"><div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:24px;"><div style="width:8px;height:8px;background:var(--accent);border-radius:50%;"></div><span style="font-size:12px;font-weight:600;color:var(--accent);letter-spacing:1px;">V01.2</span></div><h1>Talkr.</h1><p>Peer-to-peer encrypted video.<br/>No signup. No servers. No logs.</p><div style="margin-top:48px;"><button id="createBtn" class="pill-btn primary">Start Instant Meeting</button></div></div>`;
+    appContainer.innerHTML = `<div class="card"><div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:24px;"><div style="width:8px;height:8px;background:var(--accent);border-radius:50%;"></div><span style="font-size:12px;font-weight:600;color:var(--accent);letter-spacing:1px;">V01.3</span></div><h1>Talkr.</h1><p>Peer-to-peer encrypted video.<br/>No signup. No servers. No logs.</p><div style="margin-top:48px;"><button id="createBtn" class="pill-btn primary">Start Instant Meeting</button></div></div>`;
     document.getElementById('createBtn')?.addEventListener('click', () => { const id = Math.random().toString(36).substring(2, 8).toUpperCase(); window.history.pushState({}, '', `?m=${id}`); renderGreenRoom(id); });
 }
 
