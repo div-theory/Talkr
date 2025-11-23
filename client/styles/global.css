@@ -15,10 +15,9 @@ body {
     width: 100vw;
     height: 100vh;
     user-select: none;
-    /* Prevents highlighting text while dragging */
 }
 
-/* --- CANVAS BACKGROUND --- */
+/* CANVAS */
 #bgCanvas {
     position: fixed;
     inset: 0;
@@ -27,7 +26,7 @@ body {
     opacity: 0.6;
 }
 
-/* --- TYPOGRAPHY --- */
+/* TYPOGRAPHY & CARDS */
 h1 {
     font-weight: 800;
     font-size: 3.5rem;
@@ -41,7 +40,6 @@ h1 {
 h2 {
     font-weight: 700;
     font-size: 2rem;
-    letter-spacing: -0.02em;
     margin-bottom: 24px;
 }
 
@@ -53,7 +51,6 @@ p {
     margin: 0 auto;
 }
 
-/* --- UI ELEMENTS --- */
 .card {
     position: relative;
     z-index: 10;
@@ -63,9 +60,9 @@ p {
     padding: 40px;
     text-align: center;
     box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.05);
-    transition: all var(--duration) var(--ease-smooth);
 }
 
+/* BUTTONS */
 .pill-btn {
     appearance: none;
     border: 1px solid var(--stroke);
@@ -95,11 +92,6 @@ p {
     border-color: transparent;
 }
 
-.pill-btn.primary:hover {
-    background: var(--fg-secondary);
-}
-
-/* --- ICONS --- */
 .icon-btn {
     width: 52px;
     height: 52px;
@@ -113,6 +105,7 @@ p {
     justify-content: center;
     cursor: pointer;
     transition: all var(--duration) var(--ease-smooth);
+    position: relative;
 }
 
 .icon-btn:hover {
@@ -141,7 +134,24 @@ p {
     fill: currentColor;
 }
 
-/* --- VIDEO LAYOUT --- */
+/* NOTIFICATION DOT */
+.notify-dot {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    background: var(--accent);
+    border-radius: 50%;
+    border: 2px solid #000;
+    display: none;
+}
+
+.notify-dot.show {
+    display: block;
+}
+
+/* VIDEO UI */
 .video-container {
     position: absolute;
     inset: 0;
@@ -155,7 +165,6 @@ p {
     object-fit: cover;
 }
 
-/* Draggable Local Video */
 .local-video-wrapper {
     position: absolute;
     bottom: 32px;
@@ -165,13 +174,7 @@ p {
     border-radius: 18px;
     z-index: 20;
     cursor: grab;
-    /* Smooth transition for border/shadow, NOT transform (to avoid drag lag) */
     transition: box-shadow 0.3s ease, border-color 0.3s ease;
-}
-
-.local-video-wrapper:active {
-    cursor: grabbing;
-    transform: scale(1.02);
 }
 
 .local-video {
@@ -182,16 +185,13 @@ p {
     background: #111;
     border: 2px solid rgba(255, 255, 255, 0.1);
     pointer-events: none;
-    /* Let clicks pass to wrapper */
 }
 
-/* Audio Glow Effect */
 .local-video-wrapper.speaking .local-video {
     border-color: var(--accent);
     box-shadow: 0 0 20px var(--accent-glow);
 }
 
-/* Auto-Hide Controls */
 .controls-bar {
     position: absolute;
     bottom: 32px;
@@ -206,7 +206,6 @@ p {
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     transition: all 0.5s var(--ease-smooth);
-    opacity: 1;
 }
 
 .controls-bar.hidden {
@@ -215,7 +214,6 @@ p {
     pointer-events: none;
 }
 
-/* --- GREEN ROOM PREVIEW --- */
 .preview-wrapper {
     width: 320px;
     height: 240px;
@@ -231,4 +229,145 @@ p {
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+/* --- NEW FEATURES --- */
+
+/* STATS PILL */
+.stats-pill {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    z-index: 20;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.stat-item span {
+    color: white;
+    font-weight: 700;
+}
+
+/* CHAT DRAWER */
+.chat-drawer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 360px;
+    background: rgba(10, 10, 10, 0.95);
+    backdrop-filter: blur(20px);
+    border-left: 1px solid var(--stroke);
+    transform: translateX(100%);
+    transition: transform 0.4s var(--ease-smooth);
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-drawer.open {
+    transform: translateX(0);
+}
+
+.chat-header {
+    padding: 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.chat-input-area {
+    padding: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    gap: 12px;
+}
+
+.chat-input {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+    color: white;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+}
+
+.chat-msg {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    max-width: 85%;
+    word-break: break-word;
+}
+
+.chat-msg.me {
+    align-self: flex-end;
+    background: var(--accent);
+    color: white;
+}
+
+.chat-msg.sys {
+    align-self: center;
+    background: transparent;
+    color: var(--fg-secondary);
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.chat-file {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+/* FILE DROP ZONE */
+.drop-zone {
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(4px);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    pointer-events: none;
+}
+
+.drop-zone.active {
+    display: flex;
+}
+
+.drop-zone h2 {
+    font-size: 32px;
+    margin-bottom: 8px;
+    pointer-events: none;
 }
