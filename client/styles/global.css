@@ -10,150 +10,158 @@
 body {
     background-color: var(--bg-page);
     color: var(--fg-primary);
-    font-family: var(--font-display);
+    font-family: 'Inter', -apple-system, sans-serif;
     overflow: hidden;
     width: 100vw;
     height: 100vh;
 }
 
-/* --- GRID BACKGROUND --- */
-.grid-overlay {
-    position: absolute;
+/* --- CANVAS BACKGROUND --- */
+#bgCanvas {
+    position: fixed;
     inset: 0;
-    background-image:
-        linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
-        linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
-    background-size: 48px 48px;
     z-index: 0;
     pointer-events: none;
-}
-
-/* --- BENTO CONTAINERS --- */
-.bento-container {
-    position: relative;
-    z-index: 1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--gap);
-    padding: var(--gap);
-    max-width: 1200px;
-    margin: 0 auto;
-    height: 100%;
-    align-content: center;
-}
-
-.bento-card {
-    background: var(--bg-card);
-    border-radius: var(--radius);
-    padding: 32px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-    /* Visible Margins / Gaps handled by parent grid gap */
+    opacity: 0.6;
 }
 
 /* --- TYPOGRAPHY --- */
 h1 {
-    font-weight: 700;
-    font-size: 4rem;
-    letter-spacing: -0.04em;
-    line-height: 0.9;
-    margin-bottom: 24px;
+    font-weight: 800;
+    font-size: 3.5rem;
+    letter-spacing: -0.03em;
+    margin-bottom: 16px;
+    background: linear-gradient(to bottom, var(--fg-primary), var(--fg-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
-.tag {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    background: var(--bg-page);
-    color: var(--fg-secondary);
-    padding: 6px 12px;
-    border-radius: 100px;
-    display: inline-block;
-    text-transform: uppercase;
-}
-
-/* --- INTERACTION --- */
-.btn {
-    appearance: none;
-    border: none;
-    outline: none;
-    background: var(--fg-primary);
-    color: var(--bg-card);
-    font-family: var(--font-display);
-    font-weight: 700;
+p {
     font-size: 16px;
-    padding: 16px 32px;
-    border-radius: 100px;
+    line-height: 1.6;
+    color: var(--fg-secondary);
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+/* --- UI ELEMENTS --- */
+.card {
+    position: relative;
+    z-index: 10;
+    background: var(--surface);
+    border: 1px solid var(--stroke);
+    border-radius: var(--radius-card);
+    padding: 40px;
+    text-align: center;
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.05);
+    /* Ultra soft shadow */
+    transition: all var(--duration) var(--ease-smooth);
+}
+
+.pill-btn {
+    appearance: none;
+    border: 1px solid var(--stroke);
+    background: var(--surface);
+    color: var(--fg-primary);
+    height: 56px;
+    padding: 0 32px;
+    border-radius: var(--radius-pill);
+    font-size: 15px;
+    font-weight: 600;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 12px;
-    transition: background 0.2s, transform 0.2s;
+    transition: background var(--duration) var(--ease-smooth),
+        border-color var(--duration) var(--ease-smooth),
+        color var(--duration) var(--ease-smooth);
 }
 
-/* Hover: No scaling, appearance shift */
-.btn:hover {
-    background: var(--accent);
-    transform: translateX(4px);
-    /* Gentle movement */
+/* Subtle Hover - No Movement */
+.pill-btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--fg-secondary);
 }
 
-.btn-icon {
-    width: 56px;
-    height: 56px;
-    padding: 0;
-    border-radius: 18px;
-    /* Squircle */
-    background: var(--bg-page);
-    color: var(--fg-primary);
-}
-
-.btn-icon:hover {
-    background: var(--accent);
-    color: white;
-    transform: translateY(-4px);
-}
-
-.btn-icon.active {
+.pill-btn.primary {
     background: var(--fg-primary);
-    color: var(--bg-card);
+    color: var(--bg-page);
+    border-color: transparent;
 }
 
-.btn-icon.danger {
-    background: #FF3333;
+.pill-btn.primary:hover {
+    background: var(--fg-secondary);
+}
+
+/* --- ICONS BUTTONS --- */
+.icon-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 1px solid var(--stroke);
+    background: rgba(20, 20, 20, 0.6);
+    /* Glassy dark */
+    backdrop-filter: blur(12px);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background var(--duration) var(--ease-smooth);
+}
+
+.icon-btn:hover {
+    background: rgba(40, 40, 40, 0.8);
+}
+
+.icon-btn.active {
+    background: white;
+    color: black;
+}
+
+.icon-btn.danger {
+    background: var(--danger);
+    border-color: var(--danger);
     color: white;
 }
 
-/* --- VIDEO LAYOUT (BENTO CALL) --- */
-.call-grid {
-    display: grid;
-    grid-template-columns: 3fr 1fr;
-    grid-template-rows: 1fr auto;
-    gap: var(--gap);
-    padding: var(--gap);
-    height: 100vh;
-    width: 100vw;
-    position: relative;
+.icon-btn.danger:hover {
+    background: #DC2626;
+}
+
+.icon-svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+}
+
+/* --- VIDEO LAYOUT --- */
+.video-container {
+    position: absolute;
+    inset: 0;
     z-index: 1;
-}
-
-.video-card {
     background: #000;
-    border-radius: var(--radius);
-    overflow: hidden;
-    position: relative;
 }
 
-.video-card video {
+.local-video {
+    position: absolute;
+    bottom: 120px;
+    right: 32px;
+    width: 160px;
+    height: 213px;
+    /* 3:4 Aspect */
+    background: #111;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    object-fit: cover;
+    z-index: 20;
+    transition: opacity var(--duration) var(--ease-smooth);
+}
+
+.remote-video {
     width: 100%;
     height: 100%;
     object-fit: cover;
-}
-
-/* --- PIXEL DECIPHER ANIMATION --- */
-.decipher {
-    display: inline-block;
-    white-space: pre;
 }

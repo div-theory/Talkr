@@ -1,32 +1,36 @@
 :root {
-    /* Structure */
-    --radius: 24px;
-    /* Soft rounded corners */
-    --gap: 16px;
-    /* Clear gaps */
-    --stroke: 1.5px;
+    /* Palette - Light */
+    --bg-page: #F9FAFB;
+    --fg-primary: #1F2937;
+    --fg-secondary: #6B7280;
+    --stroke: rgba(0, 0, 0, 0.08);
+    /* Subtle stroke */
+    --surface: #FFFFFF;
+    --surface-hover: #F3F4F6;
 
-    /* Light Mode (Default) */
-    --bg-page: #F2F2F2;
-    --bg-card: #FFFFFF;
-    --fg-primary: #111111;
-    --fg-secondary: #666666;
-    --accent: #0044FF;
-    --grid-line: rgba(0, 0, 0, 0.08);
+    /* Accent */
+    --accent: #3B82F6;
+    --accent-glow: rgba(59, 130, 246, 0.15);
+    --danger: #EF4444;
 
-    /* Typography */
-    --font-display: 'Inter', sans-serif;
-    /* Inter Bold */
-    --font-mono: 'JetBrains Mono', monospace;
+    /* Metrics */
+    --radius-pill: 9999px;
+    --radius-card: 24px;
+
+    /* Motion */
+    --ease-smooth: cubic-bezier(0.2, 0.8, 0.2, 1);
+    /* The "Luxury" ease */
+    --duration: 0.4s;
 }
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --bg-page: #000000;
-        --bg-card: #111111;
-        --fg-primary: #FFFFFF;
-        --fg-secondary: #888888;
-        --accent: #2E95FF;
-        --grid-line: rgba(255, 255, 255, 0.1);
+        --bg-page: #050505;
+        --fg-primary: #F9FAFB;
+        --fg-secondary: #9CA3AF;
+        --stroke: rgba(255, 255, 255, 0.12);
+        /* Muted white stroke */
+        --surface: #111111;
+        --surface-hover: #1F1F1F;
     }
 }
