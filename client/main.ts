@@ -4,7 +4,6 @@ import { PeerManager } from './webrtc/peerManager';
 const PROD_SIGNALING_URL = 'wss://talkr-server.onrender.com';
 const getSignalingUrl = () => (window.location.hostname.includes('localhost') || window.location.hostname.includes('127')) ? 'ws://localhost:8080' : PROD_SIGNALING_URL;
 
-// Global Audio Level for Particles
 (window as any).currentAudioLevel = 0;
 
 const ICONS = {
@@ -22,7 +21,6 @@ const ICONS = {
     send: `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>`
 };
 
-// --- REACTIVE PARTICLE SYSTEM ---
 class ParticleSystem {
     canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; particles: any[] = [];
     constructor() {
@@ -36,17 +34,11 @@ class ParticleSystem {
         const isDark = document.body.classList.contains('dark-theme') || window.matchMedia('(prefers-color-scheme: dark)').matches;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
-
-        // AUDIO REACTIVITY
         const boost = 1 + ((window as any).currentAudioLevel || 0) * 0.05;
-
         this.particles.forEach(p => {
-            p.x += p.vx * boost;
-            p.y += p.vy * boost;
+            p.x += p.vx * boost; p.y += p.vy * boost;
             if (p.x < 0) p.x = this.canvas.width; if (p.x > this.canvas.width) p.x = 0; if (p.y < 0) p.y = this.canvas.height; if (p.y > this.canvas.height) p.y = 0;
-            this.ctx.beginPath();
-            this.ctx.arc(p.x, p.y, p.size * (boost * 0.8), 0, Math.PI * 2); // Pulse Size
-            this.ctx.fill();
+            this.ctx.beginPath(); this.ctx.arc(p.x, p.y, p.size * (boost * 0.8), 0, Math.PI * 2); this.ctx.fill();
         });
         requestAnimationFrame(() => this.animate());
     }
@@ -82,7 +74,7 @@ function makeDraggable(el: HTMLElement) {
 }
 
 function initMagneticButtons() {
-    const btns = document.querySelectorAll('.icon-btn, .pill-btn');
+    const btns = document.querySelectorAll('.icon-btn, .pill-btn, .big-start-btn');
     btns.forEach((btn: any) => {
         btn.addEventListener('mousemove', (e: MouseEvent) => {
             const rect = btn.getBoundingClientRect();
@@ -141,11 +133,7 @@ async function startCall(roomId: string, stream: MediaStream) {
     localWrapper.appendChild(localVideo); vidWrapper.appendChild(localWrapper); makeDraggable(localWrapper);
 
     const statsPill = document.createElement('div'); statsPill.className = 'stats-pill'; statsPill.innerHTML = `<div class="stat-item">PING: <span id="statPing">--</span>ms</div><div class="stat-item">MODE: <span id="statMode">--</span></div>`; appContainer.appendChild(statsPill);
-
-    // PORTAL DROP ZONE
-    const dropZone = document.createElement('div'); dropZone.className = 'drop-zone';
-    dropZone.innerHTML = `<div class="portal-ring"></div><h2>DROP TO TELEPORT</h2>`;
-    appContainer.appendChild(dropZone);
+    const dropZone = document.createElement('div'); dropZone.className = 'drop-zone'; dropZone.innerHTML = `<div class="portal-ring"></div><h2>DROP TO TELEPORT</h2>`; appContainer.appendChild(dropZone);
 
     const chatDrawer = document.createElement('div'); chatDrawer.className = 'chat-drawer';
     chatDrawer.innerHTML = `
@@ -221,7 +209,6 @@ async function startCall(roomId: string, stream: MediaStream) {
     window.addEventListener('mousemove', resetIdle); window.addEventListener('touchstart', resetIdle); resetIdle();
 }
 
-// ... renderGreenRoom and renderHome remain the same ...
 async function renderGreenRoom(roomId: string) {
     appContainer.style.cssText = `display:flex;justify-content:center;align-items:center;height:100vh;position:relative;z-index:10;`;
     appContainer.innerHTML = `
@@ -250,11 +237,72 @@ async function renderGreenRoom(roomId: string) {
     document.getElementById('joinBtn')?.addEventListener('click', () => startCall(roomId, stream));
 }
 
+// --- NEW LANDING PAGE RENDER ---
 function renderHome() {
-    appContainer.style.cssText = `display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;position:relative;z-index:10;`;
-    appContainer.innerHTML = `<div class="card"><div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:24px;"><div style="width:8px;height:8px;background:var(--accent);border-radius:50%;"></div><span style="font-size:12px;font-weight:600;color:var(--accent);letter-spacing:1px;">V01.6</span></div><h1>Talkr.</h1><p>Peer-to-peer encrypted video.<br/>No signup. No servers. No logs.</p><div style="margin-top:48px;"><button id="createBtn" class="pill-btn primary">Start Instant Meeting</button></div></div>`;
+    appContainer.style.cssText = ''; // Reset inline styles
+    appContainer.innerHTML = `
+    <div class="landing-layout">
+        <!-- GRID LINES -->
+        <div class="grid-line-x" style="top:33.33%"></div>
+        <div class="grid-line-x" style="top:66.66%"></div>
+        <div class="grid-line-y" style="left:33.33%"></div>
+        <div class="grid-line-y" style="left:66.66%"></div>
+        <!-- CROSSHAIRS -->
+        <div class="crosshair" style="top:33.33%;left:33.33%;transform:translate(-50%,-50%)"></div>
+        <div class="crosshair" style="top:33.33%;left:66.66%;transform:translate(-50%,-50%)"></div>
+        <div class="crosshair" style="top:66.66%;left:33.33%;transform:translate(-50%,-50%)"></div>
+        <div class="crosshair" style="top:66.66%;left:66.66%;transform:translate(-50%,-50%)"></div>
+
+        <!-- CORNERS -->
+        <div class="corner corner-tl">
+            <h1>TALKR.</h1>
+            <span class="mono-label">PROTOCOL V01.7</span>
+        </div>
+        <div class="corner corner-tr">
+            <div class="mono-label">SYSTEM STATUS</div>
+            <div class="stat-value" style="color:#4ADE80">OPTIMAL</div>
+            <div class="mono-label" style="margin-top:16px">LOCAL TIME</div>
+            <div class="stat-value" id="clock">00:00:00</div>
+        </div>
+        <div class="corner corner-bl">
+            <p class="manifesto">
+                End-to-End Encrypted.<br>
+                Peer-to-Peer Direct.<br>
+                No Servers. No Logs.<br>
+                Pure Privacy.
+            </p>
+        </div>
+        <div class="corner corner-br">
+            <div style="display:flex; gap:12px;">
+                <div class="mono-label">AES-GCM</div>
+                <div class="mono-label">X25519</div>
+                <div class="mono-label">WEBRTC</div>
+            </div>
+        </div>
+
+        <!-- CENTER ACTION -->
+        <div class="hero-center">
+            <button id="createBtn" class="big-start-btn">
+                START
+                <span>INITIALIZE</span>
+            </button>
+        </div>
+    </div>
+  `;
+
     initMagneticButtons();
-    document.getElementById('createBtn')?.addEventListener('click', () => { const id = Math.random().toString(36).substring(2, 8).toUpperCase(); window.history.pushState({}, '', `?m=${id}`); renderGreenRoom(id); });
+
+    // Clock Logic
+    const clock = document.getElementById('clock');
+    setInterval(() => {
+        if (clock) clock.innerText = new Date().toLocaleTimeString();
+    }, 1000);
+
+    document.getElementById('createBtn')?.addEventListener('click', () => {
+        const id = Math.random().toString(36).substring(2, 8).toUpperCase();
+        window.history.pushState({}, '', `?m=${id}`);
+        renderGreenRoom(id);
+    });
 }
 
 const id = new URLSearchParams(window.location.search).get('m');
