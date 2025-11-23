@@ -13,8 +13,10 @@ export class PeerManager {
     private processedReceivers = new WeakSet<RTCRtpReceiver>();
     private processedSenders = new WeakSet<RTCRtpSender>();
 
-    // FEATURE FLAG: Check if browser supports E2EE Insertable Streams
-    private supportsE2EE = !!(window.RTCRtpSender && 'createEncodedStreams' in window.RTCRtpSender.prototype);
+    // Capability Flags
+    private localSupportsE2EE = !!(window.RTCRtpSender && 'createEncodedStreams' in window.RTCRtpSender.prototype);
+    private remoteSupportsE2EE = false;
+    private isE2EEActive = false;
 
     public onRemoteStream: ((stream: MediaStream) => void) | null = null;
 
@@ -25,22 +27,20 @@ export class PeerManager {
         this.ws = new WebSocket(signalingUrl);
         this.setupSignaling();
 
-        if (!this.supportsE2EE) {
-            console.warn('[Talkr] Browser does not support Insertable Streams. Falling back to Standard Encryption.');
+        if (!this.localSupportsE2EE) {
+            console.warn('[Talkr] Browser does not support Insertable Streams. Fallback mode enabled.');
         }
     }
 
     private initPeerConnection(iceConfig: any) {
-        console.log('[WebRTC] Initializing PC. E2EE Supported:', this.supportsE2EE);
+        console.log('[WebRTC] Init PC. Local E2EE Support:', this.localSupportsE2EE);
 
-        // Only enable Insertable Streams if the browser actually supports it
         const config = {
             ...iceConfig,
-            encodedInsertableStreams: this.supportsE2EE
+            encodedInsertableStreams: this.localSupportsE2EE
         };
 
         this.pc = new RTCPeerConnection(config);
-
         this.setupPeerEvents();
 
         if (this.localStream) {
@@ -50,32 +50,24 @@ export class PeerManager {
 
     private addLocalTracksToPc() {
         if (!this.pc || !this.localStream) return;
-
         this.localStream.getTracks().forEach(track => {
-            const senders = this.pc!.getSenders();
-            const alreadyHasTrack = senders.find(s => s.track === track);
+            this.pc!.addTrack(track, this.localStream!);
+        });
+    }
 
-            let sender: RTCRtpSender;
-            if (alreadyHasTrack) {
-                sender = alreadyHasTrack;
-            } else {
-                sender = this.pc!.addTrack(track, this.localStream!);
-            }
+    // Called ONLY after we agree that both sides support E2EE
+    private enableSenderEncryption() {
+        if (!this.pc || !this.localSupportsE2EE) return;
+        console.log('[WebRTC] Enabling E2EE for Sender...');
 
-            // ONLY ATTEMPT E2EE IF SUPPORTED
-            if (this.supportsE2EE && track.kind === 'video') {
-                if (this.processedSenders.has(sender)) return;
+        this.pc.getSenders().forEach(sender => {
+            if (sender.track?.kind === 'video' && !this.processedSenders.has(sender)) {
                 this.processedSenders.add(sender);
-
                 try {
                     const streams = (sender as any).createEncodedStreams();
                     const transformStream = this.e2ee.senderTransform();
-                    streams.readable
-                        .pipeThrough(transformStream)
-                        .pipeTo(streams.writable);
-                } catch (e) {
-                    console.error('E2EE sender setup failed:', e);
-                }
+                    streams.readable.pipeThrough(transformStream).pipeTo(streams.writable);
+                } catch (e) { console.error('Sender E2EE Error:', e); }
             }
         });
     }
@@ -95,11 +87,9 @@ export class PeerManager {
         };
         draw();
         const stream = canvas.captureStream(30);
-        // Audio Context Resume Hack
         const audioCtx = new AudioContext();
         const resumeAudio = () => { if (audioCtx.state === 'suspended') audioCtx.resume(); };
         document.body.addEventListener('click', resumeAudio);
-
         const osc = audioCtx.createOscillator();
         const dst = audioCtx.createMediaStreamDestination();
         osc.connect(dst); osc.start();
@@ -135,19 +125,17 @@ export class PeerManager {
         };
 
         this.pc.ontrack = (event) => {
-            if (event.track.kind === 'video') {
+            // ONLY ENABLE DECRYPTION IF BOTH SIDES SUPPORT IT
+            if (event.track.kind === 'video' && this.isE2EEActive) {
                 const receiver = event.receiver;
-
-                // ONLY ATTEMPT E2EE IF SUPPORTED
-                if (this.supportsE2EE && !this.processedReceivers.has(receiver)) {
+                if (!this.processedReceivers.has(receiver)) {
                     this.processedReceivers.add(receiver);
                     try {
+                        console.log('[WebRTC] Enabling E2EE for Receiver...');
                         const streams = (receiver as any).createEncodedStreams();
                         const transformStream = this.e2ee.receiverTransform();
                         streams.readable.pipeThrough(transformStream).pipeTo(streams.writable);
-                    } catch (e) {
-                        console.error('E2EE receiver setup failed:', e);
-                    }
+                    } catch (e) { console.error('Receiver E2EE Error:', e); }
                 }
             }
             if (this.onRemoteStream) this.onRemoteStream(event.streams[0]);
@@ -168,7 +156,13 @@ export class PeerManager {
             switch (data.type) {
                 case 'ready':
                     const pubKey = await this.crypto.exportPublicKey();
-                    this.send({ type: 'key-exchange', key: pubKey, roomId: this.roomId });
+                    // Send my Key AND my E2EE capability
+                    this.send({
+                        type: 'key-exchange',
+                        key: pubKey,
+                        roomId: this.roomId,
+                        supportsE2EE: this.localSupportsE2EE
+                    });
                     this.hasSentKey = true;
                     break;
 
@@ -176,9 +170,24 @@ export class PeerManager {
                     const peerKey = await this.crypto.importPeerKey(data.key);
                     await this.crypto.deriveSharedSecret(peerKey);
 
+                    // NEGOTIATE E2EE
+                    this.remoteSupportsE2EE = !!data.supportsE2EE;
+                    this.isE2EEActive = this.localSupportsE2EE && this.remoteSupportsE2EE;
+
+                    console.log(`[Talkr] E2EE Negotiation: Local=${this.localSupportsE2EE}, Remote=${this.remoteSupportsE2EE} -> Active=${this.isE2EEActive}`);
+
+                    if (this.isE2EEActive) {
+                        this.enableSenderEncryption();
+                    }
+
                     if (!this.hasSentKey) {
                         const myKey = await this.crypto.exportPublicKey();
-                        this.send({ type: 'key-exchange', key: myKey, roomId: this.roomId });
+                        this.send({
+                            type: 'key-exchange',
+                            key: myKey,
+                            roomId: this.roomId,
+                            supportsE2EE: this.localSupportsE2EE
+                        });
                         this.hasSentKey = true;
 
                         const offer = await this.pc.createOffer();
