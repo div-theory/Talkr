@@ -1,15 +1,14 @@
-// ... imports remain same ...
 import { CryptoEngine } from '../crypto/crypto';
 import { E2EETransformer } from '../e2ee/e2ee-transform';
 
 export class PeerManager {
-    // ... existing properties ...
     private pc: RTCPeerConnection | null = null;
     private ws: WebSocket;
     private roomId: string;
     private localStream: MediaStream | null = null;
     private crypto: CryptoEngine;
     private e2ee: E2EETransformer;
+
     private hasSentKey: boolean = false;
     private processedReceivers = new WeakSet<RTCRtpReceiver>();
     private processedSenders = new WeakSet<RTCRtpSender>();
@@ -24,11 +23,9 @@ export class PeerManager {
         this.ws = new WebSocket(signalingUrl);
         this.setupSignaling();
         this.requestWakeLock();
-
         if (!this.supportsE2EE) console.warn('[Talkr] Legacy Mode');
     }
 
-    // ... requestWakeLock, initPeerConnection, addLocalTracksToPc remain same ...
     private async requestWakeLock() {
         if ('wakeLock' in navigator) {
             try { this.wakeLock = await (navigator as any).wakeLock.request('screen'); } catch (e) { }
@@ -58,28 +55,26 @@ export class PeerManager {
         });
     }
 
-    private getDummyStream(): MediaStream {
-        const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 480;
-        const ctx = canvas.getContext('2d')!;
-        const draw = () => {
-            ctx.fillStyle = '#333'; ctx.fillRect(0, 0, 640, 480);
-            ctx.fillStyle = '#fff'; ctx.fillText('NO CAM', 50, 240);
-            requestAnimationFrame(draw);
-        }; draw();
-        return canvas.captureStream(30);
-    }
-
-    // --- UPDATE START METHOD TO ACCEPT STREAM ---
+    // Modified Start: Accepts existing stream or handles fallback
     async start(existingStream?: MediaStream) {
         await this.crypto.generateKeyPair();
 
         if (existingStream) {
             this.localStream = existingStream;
         } else {
+            // Fallback logic if no stream passed
             try {
+                // Try Video + Audio
                 this.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             } catch (e) {
-                this.localStream = this.getDummyStream();
+                console.warn('Video failed, trying Audio only...');
+                try {
+                    // Try Audio Only
+                    this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                } catch (err) {
+                    console.error('No devices found.');
+                    return; // App will show no signal, but won't crash
+                }
             }
         }
 
@@ -92,11 +87,11 @@ export class PeerManager {
         }
     }
 
-    // ... setupPeerEvents, setupSignaling, send, getLocalStream remain same ...
     private setupPeerEvents() {
         if (!this.pc) return;
         this.pc.onicecandidate = (e) => { if (e.candidate) this.send({ type: 'ice', candidate: e.candidate, roomId: this.roomId }); };
         this.pc.ontrack = (e) => {
+            // Only attach E2EE if it is a VIDEO track
             if (e.track.kind === 'video' && this.supportsE2EE) {
                 const receiver = e.receiver;
                 if (!this.processedReceivers.has(receiver)) {

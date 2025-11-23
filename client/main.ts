@@ -17,26 +17,19 @@ const ICONS = {
     copy: `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`
 };
 
-// --- BACKGROUND PARTICLE SYSTEM ---
+// --- PARTICLE BACKGROUND ---
 class ParticleSystem {
-    canvas: HTMLCanvasElement;
-    ctx: CanvasRenderingContext2D;
+    canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D;
     particles: { x: number, y: number, vx: number, vy: number, size: number }[] = [];
     constructor() {
         this.canvas = document.createElement('canvas'); this.canvas.id = 'bgCanvas';
-        document.body.prepend(this.canvas);
-        this.ctx = this.canvas.getContext('2d')!;
+        document.body.prepend(this.canvas); this.ctx = this.canvas.getContext('2d')!;
         this.resize(); window.addEventListener('resize', () => this.resize());
         this.initParticles(); this.animate();
     }
     resize() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
     initParticles() {
-        for (let i = 0; i < 40; i++) {
-            this.particles.push({
-                x: Math.random() * this.canvas.width, y: Math.random() * this.canvas.height,
-                vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5, size: Math.random() * 2 + 1
-            });
-        }
+        for (let i = 0; i < 40; i++) this.particles.push({ x: Math.random() * this.canvas.width, y: Math.random() * this.canvas.height, vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5, size: Math.random() * 2 + 1 });
     }
     animate() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -52,82 +45,54 @@ class ParticleSystem {
 }
 new ParticleSystem();
 
-// --- APP LOGIC ---
+// --- APP STATE ---
 const appState = {
     manager: null as PeerManager | null,
-    isMuted: false, isVideoOff: false,
+    isMuted: false,
+    isVideoOff: true, // DEFAULT OFF
     stream: null as MediaStream | null,
     idleTimer: 0 as any
 };
 const appContainer = document.getElementById('app') as HTMLDivElement;
 
-// --- HELPER: DRAGGABLE ---
+// --- DRAGGABLE ---
 function makeDraggable(element: HTMLElement) {
-    let isDragging = false;
-    let startX = 0, startY = 0;
-    let initialLeft = 0, initialTop = 0;
-
-    const onMouseDown = (e: MouseEvent | TouchEvent) => {
-        isDragging = true;
-        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-        startX = clientX; startY = clientY;
-        const rect = element.getBoundingClientRect();
-        initialLeft = rect.left; initialTop = rect.top;
-
+    let isDragging = false, startX = 0, startY = 0, initLeft = 0, initTop = 0;
+    const onStart = (e: any) => {
+        isDragging = true; const p = e.touches ? e.touches[0] : e; startX = p.clientX; startY = p.clientY;
+        const r = element.getBoundingClientRect(); initLeft = r.left; initTop = r.top;
         element.style.right = 'auto'; element.style.bottom = 'auto';
-        element.style.left = `${initialLeft}px`; element.style.top = `${initialTop}px`;
-        element.style.width = `${rect.width}px`; element.style.height = `${rect.height}px`;
+        element.style.left = `${initLeft}px`; element.style.top = `${initTop}px`;
     };
-
-    const onMouseMove = (e: MouseEvent | TouchEvent) => {
-        if (!isDragging) return;
-        e.preventDefault();
-        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-        const dx = clientX - startX;
-        const dy = clientY - startY;
-        element.style.left = `${initialLeft + dx}px`;
-        element.style.top = `${initialTop + dy}px`;
+    const onMove = (e: any) => {
+        if (!isDragging) return; const p = e.touches ? e.touches[0] : e;
+        element.style.left = `${initLeft + (p.clientX - startX)}px`;
+        element.style.top = `${initTop + (p.clientY - startY)}px`;
     };
-
-    const onMouseUp = () => { isDragging = false; };
-
-    element.addEventListener('mousedown', onMouseDown);
-    element.addEventListener('touchstart', onMouseDown);
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('touchmove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    window.addEventListener('touchend', onMouseUp);
+    const onEnd = () => isDragging = false;
+    element.addEventListener('mousedown', onStart); element.addEventListener('touchstart', onStart);
+    window.addEventListener('mousemove', onMove); window.addEventListener('touchmove', onMove);
+    window.addEventListener('mouseup', onEnd); window.addEventListener('touchend', onEnd);
 }
 
-// --- HELPER: AUDIO GLOW ---
+// --- AUDIO GLOW ---
 function initAudioGlow(stream: MediaStream, targetEl: HTMLElement) {
     try {
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         const src = audioCtx.createMediaStreamSource(stream);
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 64;
-        src.connect(analyser);
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-
+        const analyser = audioCtx.createAnalyser(); analyser.fftSize = 64;
+        src.connect(analyser); const dataArray = new Uint8Array(analyser.frequencyBinCount);
         const checkVolume = () => {
             if (!document.body.contains(targetEl)) return;
             analyser.getByteFrequencyData(dataArray);
-            let sum = 0;
-            for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
-            const avg = sum / bufferLength;
-            if (avg > 15) targetEl.classList.add('speaking');
-            else targetEl.classList.remove('speaking');
+            let sum = 0; for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+            if (sum / dataArray.length > 15) targetEl.classList.add('speaking'); else targetEl.classList.remove('speaking');
             requestAnimationFrame(checkVolume);
-        };
-        checkVolume();
+        }; checkVolume();
     } catch (e) { }
 }
 
-// --- VIEW: CALL UI ---
+// --- CALL UI ---
 async function startCall(roomId: string, stream: MediaStream) {
     appContainer.innerHTML = '';
 
@@ -152,28 +117,24 @@ async function startCall(roomId: string, stream: MediaStream) {
     makeDraggable(localWrapper);
     initAudioGlow(stream, localWrapper);
 
-    // Controls
+    // Controls - Default Cam OFF
     const controls = document.createElement('div');
     controls.className = 'controls-bar';
     controls.innerHTML = `
     <button id="copyBtn" class="icon-btn" title="Copy">${ICONS.copy}</button>
-    <button id="vidBtn" class="icon-btn active" title="Cam">${ICONS.cam}</button>
+    <button id="vidBtn" class="icon-btn" title="Cam">${ICONS.camOff}</button>
     <button id="muteBtn" class="icon-btn active" title="Mic">${ICONS.mic}</button>
     <button id="endBtn" class="icon-btn danger" title="End">${ICONS.end}</button>
   `;
     appContainer.appendChild(controls);
 
-    // Status
     const status = document.createElement('div');
     status.style.cssText = `position:absolute;top:40px;left:50%;transform:translateX(-50%);font-family:monospace;color:rgba(255,255,255,0.6);font-size:12px;letter-spacing:2px;z-index:20;pointer-events:none;`;
     status.innerText = `WAITING FOR PEER...`;
     appContainer.appendChild(status);
 
-    // Logic
     const signalUrl = getSignalingUrl();
     appState.manager = new PeerManager(roomId, signalUrl);
-
-    // Pass pre-fetched stream
     await appState.manager.start(stream);
 
     appState.manager.onRemoteStream = (s) => {
@@ -181,7 +142,7 @@ async function startCall(roomId: string, stream: MediaStream) {
         status.innerText = 'ENCRYPTED • X25519'; status.style.color = '#4ADE80';
     };
 
-    // Controls Logic
+    // Event Listeners
     document.getElementById('copyBtn')?.addEventListener('click', () => {
         navigator.clipboard.writeText(window.location.href);
         status.innerText = 'COPIED'; setTimeout(() => status.innerText = 'SECURE', 2000);
@@ -208,52 +169,68 @@ async function startCall(roomId: string, stream: MediaStream) {
         }
     });
 
-    // Auto-Hide Logic
     const resetIdle = () => {
-        controls.classList.remove('hidden');
-        clearTimeout(appState.idleTimer);
+        controls.classList.remove('hidden'); clearTimeout(appState.idleTimer);
         appState.idleTimer = setTimeout(() => controls.classList.add('hidden'), 3000);
     };
-    window.addEventListener('mousemove', resetIdle);
-    window.addEventListener('touchstart', resetIdle);
+    window.addEventListener('mousemove', resetIdle); window.addEventListener('touchstart', resetIdle);
     resetIdle();
 }
 
-// --- VIEW: GREEN ROOM (PREVIEW) ---
+// --- GREEN ROOM (UPDATED) ---
 async function renderGreenRoom(roomId: string) {
+    appContainer.style.cssText = `display:flex;justify-content:center;align-items:center;height:100vh;position:relative;z-index:10;`;
     appContainer.innerHTML = `
-    <div class="card" style="width: 400px; display: flex; flex-direction: column; align-items: center;">
+    <div class="card" style="width:400px;display:flex;flex-direction:column;align-items:center;">
       <h2>Green Room</h2>
-      <div class="preview-wrapper">
-        <video id="previewVid" class="preview-video" autoplay playsinline muted></video>
+      <div class="preview-wrapper" style="background:#000;display:flex;align-items:center;justify-content:center;">
+        <video id="previewVid" class="preview-video" autoplay playsinline muted style="display:none;"></video>
+        <div id="noCamText" style="color:#666;font-family:monospace;">CAMERA OFF</div>
       </div>
-      <div style="display: flex; gap: 16px; margin-top: 16px; width: 100%;">
-        <button id="joinBtn" class="pill-btn primary" style="flex: 1;">Join Call</button>
-        <button id="cancelBtn" class="pill-btn" style="flex: 1;">Cancel</button>
+      <div style="margin-top:16px;font-size:12px;color:var(--fg-secondary);margin-bottom:16px;">
+        Join as Voice Only (Default)
+      </div>
+      <div style="display:flex;gap:16px;width:100%;">
+        <button id="joinBtn" class="pill-btn primary" style="flex:1;">Join Call</button>
       </div>
     </div>
   `;
 
-    // Render Center
-    appContainer.style.display = 'flex'; appContainer.style.justifyContent = 'center'; appContainer.style.alignItems = 'center';
+    let stream: MediaStream;
 
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        appState.stream = stream;
-        const vid = document.getElementById('previewVid') as HTMLVideoElement;
-        vid.srcObject = stream;
-
-        document.getElementById('joinBtn')?.addEventListener('click', () => {
-            startCall(roomId, stream);
-        });
+        // Attempt Video+Audio first
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     } catch (e) {
-        alert('Camera/Mic access denied.');
+        try {
+            // Fallback to Audio Only
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (err) {
+            alert('Mic/Cam blocked. Cannot join.');
+            return;
+        }
     }
 
-    document.getElementById('cancelBtn')?.addEventListener('click', () => window.location.href = '/');
+    appState.stream = stream;
+    const vid = document.getElementById('previewVid') as HTMLVideoElement;
+    const placeholder = document.getElementById('noCamText') as HTMLElement;
+
+    // Turn OFF video track by default
+    const vidTrack = stream.getVideoTracks()[0];
+    if (vidTrack) {
+        vidTrack.enabled = false; // Default Off
+        vid.srcObject = stream;
+        // Note: We keep the video element hidden in preview since it's off
+    } else {
+        placeholder.innerText = "NO CAMERA DETECTED";
+    }
+
+    document.getElementById('joinBtn')?.addEventListener('click', () => {
+        startCall(roomId, stream);
+    });
 }
 
-// --- VIEW: LANDING ---
+// --- LANDING ---
 function renderHome() {
     appContainer.style.cssText = `display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;position:relative;z-index:10;`;
     appContainer.innerHTML = `
@@ -278,5 +255,4 @@ function renderHome() {
 
 const urlParams = new URLSearchParams(window.location.search);
 const meetingId = urlParams.get('m');
-if (meetingId) renderGreenRoom(meetingId);
-else renderHome();
+if (meetingId) renderGreenRoom(meetingId); else renderHome();
