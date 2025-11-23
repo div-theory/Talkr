@@ -3,7 +3,7 @@ import { PeerManager } from './webrtc/peerManager';
 
 // CONFIGURATION
 // REPLACE THIS URL AFTER YOU DEPLOY THE SERVER TO RENDER
-const PROD_SIGNALING_URL = 'wss://your-app-name.onrender.com';
+const PROD_SIGNALING_URL = 'wss://talkr-server.onrender.com';
 
 const getSignalingUrl = () => {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
