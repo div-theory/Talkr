@@ -4,31 +4,16 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Fonts would be linked here (e.g., FontShare for General Sans) -->
-    <link href="https://api.fontshare.com/v2/css?f[]=general-sans@500,600,400,700&f[]=dm-mono@400&display=swap"
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap"
         rel="stylesheet">
-    <title>Talkr — Private P2P</title>
+    <title>Talkr</title>
 </head>
 
 <body>
-    <div id="app">
-        <!-- UI Skeleton -->
-        <main
-            style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;">
-            <h1 style="font-size: 48px; font-weight: 700; margin-bottom: 24px;">TALKR</h1>
-
-            <div class="card" style="width: 320px; text-align: center;">
-                <p style="margin-bottom: 16px;">E2EE P2P MEETING</p>
-                <button id="createBtn" class="btn btn-primary">START MEETING &rarr;</button>
-            </div>
-
-            <div style="margin-top: 24px; font-family: var(--font-mono); font-size: 12px; opacity: 0.5;">
-                V01.1 // ENCRYPTED
-            </div>
-        </main>
-    </div>
-
-    <!-- Entry Point -->
+    <div id="app"></div>
     <script type="module" src="./main.ts"></script>
 </body>
 

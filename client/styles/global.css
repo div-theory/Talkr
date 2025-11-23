@@ -8,145 +8,152 @@
 }
 
 body {
-    background-color: var(--bg-deep);
-    color: var(--primary);
-    font-family: var(--font-main);
+    background-color: var(--bg-page);
+    color: var(--fg-primary);
+    font-family: var(--font-display);
     overflow: hidden;
     width: 100vw;
     height: 100vh;
 }
 
-/* --- UTILITIES --- */
-
-/* Technical Grid Background */
-.grid-bg {
-    background-size: 40px 40px;
-    background-image:
-        linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+/* --- GRID BACKGROUND --- */
+.grid-overlay {
     position: absolute;
     inset: 0;
-    z-index: -1;
+    background-image:
+        linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 48px 48px;
+    z-index: 0;
+    pointer-events: none;
 }
 
-/* Glassmorphism Panel */
-.glass {
-    background: var(--glass-panel);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--glass-border);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+/* --- BENTO CONTAINERS --- */
+.bento-container {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--gap);
+    padding: var(--gap);
+    max-width: 1200px;
+    margin: 0 auto;
+    height: 100%;
+    align-content: center;
 }
 
-/* Animations */
-@keyframes fade-in-up {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+.bento-card {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    /* Visible Margins / Gaps handled by parent grid gap */
 }
 
-@keyframes pulse-green {
-    0% {
-        box-shadow: 0 0 0 0 rgba(0, 255, 148, 0.4);
-    }
-
-    70% {
-        box-shadow: 0 0 0 10px rgba(0, 255, 148, 0);
-    }
-
-    100% {
-        box-shadow: 0 0 0 0 rgba(0, 255, 148, 0);
-    }
+/* --- TYPOGRAPHY --- */
+h1 {
+    font-weight: 700;
+    font-size: 4rem;
+    letter-spacing: -0.04em;
+    line-height: 0.9;
+    margin-bottom: 24px;
 }
 
-/* --- COMPONENTS --- */
-
-/* Modern Button */
-.btn {
-    appearance: none;
-    border: 1px solid var(--glass-border);
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--primary);
-    border-radius: var(--radius-full);
-    padding: 12px 24px;
+.tag {
     font-family: var(--font-mono);
     font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0.5px;
+    background: var(--bg-page);
+    color: var(--fg-secondary);
+    padding: 6px 12px;
+    border-radius: 100px;
+    display: inline-block;
     text-transform: uppercase;
+}
+
+/* --- INTERACTION --- */
+.btn {
+    appearance: none;
+    border: none;
+    outline: none;
+    background: var(--fg-primary);
+    color: var(--bg-card);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 16px;
+    padding: 16px 32px;
+    border-radius: 100px;
     cursor: pointer;
-    transition: all 0.3s var(--ease-out);
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 12px;
+    transition: background 0.2s, transform 0.2s;
 }
 
+/* Hover: No scaling, appearance shift */
 .btn:hover {
-    background: var(--primary);
-    color: var(--bg-deep);
-    border-color: var(--primary);
-    transform: translateY(-1px);
-}
-
-.btn:active {
-    transform: translateY(1px);
+    background: var(--accent);
+    transform: translateX(4px);
+    /* Gentle movement */
 }
 
 .btn-icon {
     width: 56px;
     height: 56px;
-    border-radius: 50%;
     padding: 0;
-    font-size: 20px;
+    border-radius: 18px;
+    /* Squircle */
+    background: var(--bg-page);
+    color: var(--fg-primary);
 }
 
-.btn-danger {
-    background: rgba(255, 68, 68, 0.1);
-    border-color: rgba(255, 68, 68, 0.3);
-    color: var(--signal-red);
-}
-
-.btn-danger:hover {
-    background: var(--signal-red);
+.btn-icon:hover {
+    background: var(--accent);
     color: white;
-    border-color: var(--signal-red);
+    transform: translateY(-4px);
 }
 
-.btn-active {
-    background: var(--primary);
-    color: var(--bg-deep);
+.btn-icon.active {
+    background: var(--fg-primary);
+    color: var(--bg-card);
 }
 
-/* Status Badge */
-.badge {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    border-radius: var(--radius-full);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--glass-border);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 1px;
+.btn-icon.danger {
+    background: #FF3333;
+    color: white;
 }
 
-.dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background-color: var(--secondary);
+/* --- VIDEO LAYOUT (BENTO CALL) --- */
+.call-grid {
+    display: grid;
+    grid-template-columns: 3fr 1fr;
+    grid-template-rows: 1fr auto;
+    gap: var(--gap);
+    padding: var(--gap);
+    height: 100vh;
+    width: 100vw;
+    position: relative;
+    z-index: 1;
 }
 
-.dot.online {
-    background-color: var(--signal-green);
-    box-shadow: 0 0 8px var(--signal-green);
-    animation: pulse-green 2s infinite;
+.video-card {
+    background: #000;
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+}
+
+.video-card video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* --- PIXEL DECIPHER ANIMATION --- */
+.decipher {
+    display: inline-block;
+    white-space: pre;
 }

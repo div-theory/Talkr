@@ -1,165 +1,122 @@
 import './styles/global.css';
 import { PeerManager } from './webrtc/peerManager';
 
-// CONFIG: REPLACE WITH YOUR RENDER URL
+// --- CONFIG ---
 const PROD_SIGNALING_URL = 'wss://talkr-server.onrender.com';
+const getSignalingUrl = () =>
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? 'ws://localhost:8080' : PROD_SIGNALING_URL;
 
-const getSignalingUrl = () => {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return 'ws://localhost:8080';
-    }
-    return PROD_SIGNALING_URL;
-};
+// --- UTILS: PIXEL DECIPHER ANIMATION ---
+function decipherText(element: HTMLElement, finalString: string) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*';
+    let iterations = 0;
+
+    const interval = setInterval(() => {
+        element.innerText = finalString
+            .split('')
+            .map((char, index) => {
+                if (index < iterations) return char;
+                return chars[Math.floor(Math.random() * chars.length)];
+            })
+            .join('');
+
+        if (iterations >= finalString.length) clearInterval(interval);
+        iterations += 1 / 2; // Speed
+    }, 30);
+}
 
 const appState = {
     manager: null as PeerManager | null,
-    isMuted: false,
-    isVideoOff: false
+    isMuted: false, isVideoOff: false
 };
 
 const appContainer = document.getElementById('app') as HTMLDivElement;
 
-// --- VIDEO FACTORY ---
+// --- COMPONENT: VIDEO ---
 function createVideoElement(isLocal: boolean): HTMLVideoElement {
     const vid = document.createElement('video');
     vid.autoplay = true; vid.playsInline = true;
     if (isLocal) vid.muted = true;
-
-    vid.style.backgroundColor = '#000';
-
-    if (isLocal) {
-        // Floating Local Pip
-        vid.style.width = '140px';
-        vid.style.height = 'auto';
-        vid.style.aspectRatio = '16/9';
-        vid.style.position = 'absolute';
-        vid.style.bottom = '110px';
-        vid.style.right = '24px';
-        vid.style.zIndex = '10';
-        vid.style.borderRadius = '12px';
-        vid.style.border = '1px solid rgba(255,255,255,0.1)';
-        vid.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
-        vid.style.transition = 'all 0.3s ease';
-        vid.style.objectFit = 'cover';
-    } else {
-        // Full Screen Remote
-        vid.style.objectFit = 'cover';
-        vid.style.width = '100%';
-        vid.style.height = '100%';
-    }
+    // Styling handled by CSS classes .video-card
     return vid;
 }
 
-// --- CALL INTERFACE ---
+// --- VIEW: CALL INTERFACE (BENTO STYLE) ---
 async function startCall(roomId: string) {
-    appContainer.innerHTML = '';
+    appContainer.innerHTML = `<div class="grid-overlay"></div>`; // BG Grid
 
-    // 1. Remote Video Layer
+    const callContainer = document.createElement('div');
+    callContainer.className = 'call-grid';
+    appContainer.appendChild(callContainer);
+
+    // 1. Main View (Remote)
+    const remoteWrapper = document.createElement('div');
+    remoteWrapper.className = 'video-card';
+    remoteWrapper.style.gridColumn = '1 / 3';
+    remoteWrapper.style.gridRow = '1 / 2';
     const remoteVideo = createVideoElement(false);
-    appContainer.appendChild(remoteVideo);
+    remoteWrapper.appendChild(remoteVideo);
+    callContainer.appendChild(remoteWrapper);
 
-    // 2. Grid Overlay (Subtle texture over video)
-    const grid = document.createElement('div');
-    grid.className = 'grid-bg';
-    grid.style.opacity = '0.1'; // Very subtle over video
-    appContainer.appendChild(grid);
+    // 2. Status Tag (Floating)
+    const statusTag = document.createElement('div');
+    statusTag.className = 'tag';
+    statusTag.style.position = 'absolute'; statusTag.style.top = '24px'; statusTag.style.left = '24px';
+    statusTag.style.zIndex = '10';
+    statusTag.innerText = 'INITIALIZING LINK...';
+    remoteWrapper.appendChild(statusTag);
 
-    // 3. Local Video Layer
+    // 3. Local View (Side Block)
+    const localWrapper = document.createElement('div');
+    localWrapper.className = 'video-card';
+    localWrapper.style.gridColumn = '2 / 3';
+    localWrapper.style.gridRow = '2 / 3';
+    localWrapper.style.height = '180px'; // Fixed height for local view
     const localVideo = createVideoElement(true);
-    appContainer.appendChild(localVideo);
+    localWrapper.appendChild(localVideo);
+    callContainer.appendChild(localWrapper);
 
-    // 4. Header Bar (Glass)
-    const header = document.createElement('div');
-    header.style.position = 'absolute';
-    header.style.top = '24px';
-    header.style.left = '24px';
-    header.style.right = '24px';
-    header.style.display = 'flex';
-    header.style.justifyContent = 'space-between';
-    header.style.alignItems = 'center';
-    header.style.zIndex = '20';
+    // 4. Controls Dock (Main Block)
+    const controlsCard = document.createElement('div');
+    controlsCard.className = 'bento-card';
+    controlsCard.style.gridColumn = '1 / 2';
+    controlsCard.style.gridRow = '2 / 3';
+    controlsCard.style.flexDirection = 'row';
+    controlsCard.style.alignItems = 'center';
+    controlsCard.style.padding = '0 32px';
+    controlsCard.style.height = '180px'; // Match height
 
-    // Logo + Room ID
-    const infoBadge = document.createElement('div');
-    infoBadge.className = 'glass badge';
-    infoBadge.innerHTML = `
-    <span class="dot" id="statusDot"></span>
-    <span style="opacity: 0.7;">ID:</span>
-    <span style="font-weight: 700;">${roomId}</span>
+    controlsCard.innerHTML = `
+    <div style="flex: 1;">
+      <div class="tag" style="margin-bottom: 8px;">ROOM ID</div>
+      <h2 style="font-size: 32px; font-weight: 700; letter-spacing: -1px;">${roomId}</h2>
+    </div>
+    <div style="display: flex; gap: 16px;">
+      <button id="copyBtn" class="btn-icon">🔗</button>
+      <button id="muteBtn" class="btn-icon">🎤</button>
+      <button id="vidBtn" class="btn-icon">📷</button>
+      <button id="endBtn" class="btn-icon danger">✕</button>
+    </div>
   `;
+    callContainer.appendChild(controlsCard);
 
-    // Encryption Status
-    const encryptBadge = document.createElement('div');
-    encryptBadge.className = 'glass badge';
-    encryptBadge.innerHTML = `
-    <span style="font-size: 14px;">🔒</span>
-    <span>E2EE SECURE</span>
-  `;
-
-    header.appendChild(infoBadge);
-    header.appendChild(encryptBadge);
-    appContainer.appendChild(header);
-
-    // 5. Status Overlay (Centered Text)
-    const statusText = document.createElement('div');
-    statusText.style.position = 'absolute';
-    statusText.style.top = '50%';
-    statusText.style.left = '50%';
-    statusText.style.transform = 'translate(-50%, -50%)';
-    statusText.style.fontFamily = 'var(--font-mono)';
-    statusText.style.fontSize = '14px';
-    statusText.style.letterSpacing = '2px';
-    statusText.style.color = 'rgba(255,255,255,0.5)';
-    statusText.style.textTransform = 'uppercase';
-    statusText.innerHTML = `Waiting for Peer <span style="animation: blink 1s infinite">...</span>`;
-    appContainer.appendChild(statusText);
-
-    // 6. Bottom Controls Dock (Glass)
-    const dock = document.createElement('div');
-    dock.className = 'glass';
-    dock.style.position = 'absolute';
-    dock.style.bottom = '32px';
-    dock.style.left = '50%';
-    dock.style.transform = 'translateX(-50%)';
-    dock.style.padding = '12px 24px';
-    dock.style.borderRadius = '24px';
-    dock.style.display = 'flex';
-    dock.style.gap = '16px';
-    dock.style.zIndex = '20';
-    dock.style.animation = 'fade-in-up 0.5s ease-out';
-
-    dock.innerHTML = `
-    <button id="copyBtn" class="btn btn-icon" title="Copy Link">🔗</button>
-    <button id="vidBtn" class="btn btn-icon btn-active" title="Toggle Video">📷</button>
-    <button id="muteBtn" class="btn btn-icon btn-active" title="Toggle Mic">🎤</button>
-    <div style="width: 1px; background: var(--glass-border); margin: 0 8px;"></div>
-    <button id="endBtn" class="btn btn-icon btn-danger" title="End Call">✕</button>
-  `;
-    appContainer.appendChild(dock);
-
-    // --- EVENT LOGIC ---
-
-    // Copy
+    // EVENT LOGIC
     document.getElementById('copyBtn')?.addEventListener('click', () => {
         navigator.clipboard.writeText(window.location.href);
-        statusText.innerText = 'LINK COPIED TO CLIPBOARD';
-        statusText.style.opacity = '1';
-        setTimeout(() => statusText.innerText = '', 2000);
+        decipherText(statusTag, 'LINK COPIED');
+        setTimeout(() => statusTag.innerText = 'SECURE CONNECTION', 2000);
     });
-
-    // End
     document.getElementById('endBtn')?.addEventListener('click', () => window.location.href = '/');
 
-    // Start Engine
+    // START ENGINE
     const signalUrl = getSignalingUrl();
     appState.manager = new PeerManager(roomId, signalUrl);
 
     appState.manager.onRemoteStream = (stream) => {
         remoteVideo.srcObject = stream;
-        statusText.style.display = 'none';
-        document.getElementById('statusDot')?.classList.add('online');
-        encryptBadge.style.borderColor = 'var(--signal-green)';
-        encryptBadge.style.color = 'var(--signal-green)';
+        decipherText(statusTag, 'E2EE ENCRYPTED');
+        statusTag.style.color = 'var(--accent)';
     };
 
     try {
@@ -167,15 +124,14 @@ async function startCall(roomId: string) {
         const localStream = appState.manager.getLocalStream();
         if (localStream) localVideo.srcObject = localStream;
 
-        // Mute/Video Toggles
+        // Buttons
         document.getElementById('muteBtn')?.addEventListener('click', (e) => {
             const btn = e.target as HTMLElement;
             const track = localStream?.getAudioTracks()[0];
             if (track) {
                 appState.isMuted = !appState.isMuted;
                 track.enabled = !appState.isMuted;
-                btn.classList.toggle('btn-active');
-                btn.innerHTML = appState.isMuted ? '🔇' : '🎤';
+                btn.classList.toggle('active');
             }
         });
 
@@ -185,49 +141,64 @@ async function startCall(roomId: string) {
             if (track) {
                 appState.isVideoOff = !appState.isVideoOff;
                 track.enabled = !appState.isVideoOff;
-                btn.classList.toggle('btn-active');
-                btn.innerHTML = appState.isVideoOff ? '🚫' : '📷';
+                btn.classList.toggle('active');
             }
         });
 
     } catch (e) {
-        statusText.innerText = 'CONNECTION ERROR';
-        statusText.style.color = 'var(--signal-red)';
+        statusTag.innerText = 'CONNECTION ERROR';
+        statusTag.style.color = '#FF0000';
     }
 }
 
-// --- LANDING INTERFACE ---
+// --- VIEW: LANDING (BENTO SPLIT) ---
 function renderHome() {
-    appContainer.innerHTML = `
-    <div class="grid-bg"></div>
-    <main style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; position: relative; z-index: 1;">
-      
-      <div style="margin-bottom: 48px; text-align: center; animation: fade-in-up 0.8s ease-out;">
-        <h1 style="font-size: 64px; font-weight: 700; letter-spacing: -3px; margin-bottom: 8px; background: linear-gradient(to bottom, #fff, #888); -webkit-background-clip: text; color: transparent;">TALKR.</h1>
-        <p style="font-family: var(--font-mono); color: var(--secondary); font-size: 14px; letter-spacing: 1px;">PRIVATE P2P PROTOCOL</p>
-      </div>
+    appContainer.innerHTML = `<div class="grid-overlay"></div>`;
 
-      <div class="glass" style="padding: 40px; border-radius: 24px; width: 360px; text-align: center; animation: fade-in-up 1s ease-out;">
-        <div style="margin-bottom: 32px;">
-            <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px; padding: 6px 12px; background: rgba(0,255,148,0.1); border-radius: 20px; color: var(--signal-green); font-size: 12px; font-weight: 600;">
-                <span>●</span> ONLINE
-            </div>
-            <p style="color: #ccc; line-height: 1.6; font-size: 14px;">
-                End-to-End Encrypted video calls. <br/>
-                No signup. No tracking. No logs.
-            </p>
-        </div>
+    const wrapper = document.createElement('div');
+    wrapper.className = 'bento-container';
 
-        <button id="createBtn" class="btn" style="width: 100%; height: 56px; font-size: 14px;">
-            Initialize Meeting <span style="margin-left: 8px">→</span>
-        </button>
-      </div>
-
-      <div style="position: absolute; bottom: 32px; font-family: var(--font-mono); font-size: 11px; color: var(--secondary); opacity: 0.5;">
-        ENCRYPTION: AES-GCM-256 / X25519
-      </div>
-    </main>
+    // 1. Hero Card
+    const heroCard = document.createElement('div');
+    heroCard.className = 'bento-card';
+    heroCard.innerHTML = `
+    <div>
+        <div class="tag" style="margin-bottom: 24px;">V01.1</div>
+        <h1 class="decipher-target">TALKR</h1>
+        <p style="font-size: 18px; color: var(--fg-secondary); max-width: 300px; line-height: 1.5;">
+            Peer-to-peer video encryption. No servers. No logs. Pure privacy.
+        </p>
+    </div>
+    <div style="display: flex; gap: 12px; margin-top: 48px;">
+        <div class="tag">AES-GCM</div>
+        <div class="tag">X25519</div>
+    </div>
   `;
+    wrapper.appendChild(heroCard);
+
+    // 2. Action Card
+    const actionCard = document.createElement('div');
+    actionCard.className = 'bento-card';
+    actionCard.style.justifyContent = 'center';
+    actionCard.style.alignItems = 'center';
+    actionCard.style.background = 'var(--fg-primary)'; // Inverted Block
+    actionCard.style.color = 'var(--bg-card)';
+
+    actionCard.innerHTML = `
+    <div style="text-align: center;">
+        <div style="font-family: var(--font-mono); opacity: 0.7; margin-bottom: 16px;">INSTANT SESSION</div>
+        <button id="createBtn" class="btn" style="background: var(--bg-card); color: var(--fg-primary);">
+            START MEETING
+        </button>
+    </div>
+  `;
+    wrapper.appendChild(actionCard);
+
+    appContainer.appendChild(wrapper);
+
+    // Interactions
+    const title = heroCard.querySelector('.decipher-target') as HTMLElement;
+    decipherText(title, 'TALKR');
 
     document.getElementById('createBtn')?.addEventListener('click', () => {
         const randomId = Math.random().toString(36).substring(2, 8).toUpperCase();

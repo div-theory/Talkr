@@ -1,27 +1,32 @@
 :root {
-    /* Palette */
-    --bg-deep: #050505;
-    --bg-surface: #111111;
+    /* Structure */
+    --radius: 24px;
+    /* Soft rounded corners */
+    --gap: 16px;
+    /* Clear gaps */
+    --stroke: 1.5px;
 
-    --glass-panel: rgba(20, 20, 20, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.08);
-
-    --primary: #FFFFFF;
-    --secondary: #888888;
-
-    --signal-green: #00FF94;
-    --signal-red: #FF4444;
-    --signal-blue: #2E95FF;
+    /* Light Mode (Default) */
+    --bg-page: #F2F2F2;
+    --bg-card: #FFFFFF;
+    --fg-primary: #111111;
+    --fg-secondary: #666666;
+    --accent: #0044FF;
+    --grid-line: rgba(0, 0, 0, 0.08);
 
     /* Typography */
-    --font-main: 'General Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-mono: 'DM Mono', monospace;
+    --font-display: 'Inter', sans-serif;
+    /* Inter Bold */
+    --font-mono: 'JetBrains Mono', monospace;
+}
 
-    /* Shape */
-    --radius-sm: 8px;
-    --radius-md: 16px;
-    --radius-full: 9999px;
-
-    /* Animation */
-    --ease-out: cubic-bezier(0.215, 0.61, 0.355, 1);
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-page: #000000;
+        --bg-card: #111111;
+        --fg-primary: #FFFFFF;
+        --fg-secondary: #888888;
+        --accent: #2E95FF;
+        --grid-line: rgba(255, 255, 255, 0.1);
+    }
 }
